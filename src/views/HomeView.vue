@@ -1,74 +1,83 @@
 <template>
-    <div class="body">
-      <div class="container">
-        <h1>TODO LIST</h1>
-        <div class="card input">
-          <input
-            type="text"
-            placeholder="請輸入待辦事項"
-            v-model="newItem"
-            @keypress.enter="addItem"
-          />
-          <a href="#" class="btn_add" @click="addItem">+</a>
-        </div>
-        <div class="card card_list">
-          <ul class="tab">
-            <li
-              :class="{ active: toggleStatus === 'all' }"
-              @click="toggleStatus = 'all'"
-            >
-              全部
+  <div class="body">
+    <div class="container">
+      <h1>TODO LIST</h1>
+      <div class="card input">
+        <input
+          type="text"
+          placeholder="請輸入待辦事項"
+          v-model="newItem"
+          @keypress.enter="addItem"
+        />
+        <a href="#" class="btn_add" @click="addItem">+</a>
+      </div>
+      <div class="card card_list">
+        <ul class="tab">
+          <li
+            v-for="(tab, index) in tabs"
+            :key="index"
+            :class="{ active: toggleStatus === tab.value }"
+            @click="toggleStatus = tab.value"
+          >
+            {{ tab.label }}
+          </li>
+        </ul>
+        <div class="cart_content">
+          <!-- <ul class="list">
+            <li v-for="item in filteredList" :key="item.id" :data-id="item.id">
+              <label class="checkbox" for="">
+                <input type="checkbox" v-model="item.checked" />
+                <span
+                  :style="{
+                    'text-decoration': item.checked ? 'line-through' : 'none'
+                  }"
+                  >{{ item.content }}</span
+                >
+              </label>
+              <a class="delete" @click="deleteItem(item.id)"></a>
             </li>
-            <li
-              :class="{ active: toggleStatus === 'undone' }"
-              @click="toggleStatus = 'undone'"
+          </ul> -->
+          <todo-list
+            :filteredList="filteredList"
+            @delete="deleteItem"
+          ></todo-list>
+          <div class="list_footer">
+            <p v-if="!getUndoneItemsCount">
+              <span>目前沒有待辦項目</span>
+            </p>
+            <p v-else>
+              <span>{{ getUndoneItemsCount }}</span
+              >個待完成項目
+            </p>
+            <a style="cursor: pointer" @click="deleteAllCompleted"
+              >清除已完成項目</a
             >
-              待完成
-            </li>
-            <li
-              :class="{ active: toggleStatus === 'done' }"
-              @click="toggleStatus = 'done'"
-            >
-              已完成
-            </li>
-          </ul>
-          <div class="cart_content">
-            <ul class="list">
-              <li v-for="item in filteredList" :key="item.id" :data-id="item.id">
-                <label class="checkbox" for="">
-                  <input type="checkbox" v-model="item.checked" />
-                  <span
-                    :style="{
-                      'text-decoration': item.checked ? 'line-through' : 'none'
-                    }"
-                    >{{ item.content }}</span
-                  >
-                </label>
-                <a class="delete" @click="deleteItem(item.id)"></a>
-              </li>
-            </ul>
-            <div class="list_footer">
-              <p>
-                <span>{{ getUndoneItemsCount }}</span
-                >個待完成項目
-              </p>
-              <a @click="deleteAllCompleted">清除已完成項目</a>
-            </div>
           </div>
         </div>
       </div>
     </div>
+  </div>
 </template>
 
 <script>
+import TodoList from '@/components/TodoList.vue'
+
 export default {
   name: 'HomeView',
   data () {
     return {
       newItem: '',
       data: [],
-      toggleStatus: 'all'
+      toggleStatus: 'all',
+      tabs: [
+        { label: '全部', value: 'all' },
+        { label: '待完成', value: 'undone' },
+        { label: '已完成', value: 'done' }
+      ]
     }
+  },
+  components: {
+    TodoList
   },
   computed: {
     filteredList () {
@@ -86,8 +95,13 @@ export default {
   },
   methods: {
     addItem () {
-      if (this.newItem === '') {
-        alert('請填寫待辦事項！')
+      if (this.newItem.trim() === '') {
+        // alert('請填寫待辦事項！')
+        this.$swal({
+          title: '請填寫待辦事項！',
+          confirmButtonColor: '#ffd370',
+          focusConfirm: false
+        })
         return
       }
       const obj = {
@@ -97,49 +111,62 @@ export default {
       }
       this.data.unshift(obj)
       this.newItem = ''
+      this.toggleStatus = ''
+      this.toggleStatus = 'all'
     },
     deleteItem (id) {
       const index = this.data.findIndex((item) => item.id === id)
-      this.data.splice(index, 1)
-      alert('刪除成功')
+      this.$swal({
+        title: '確認刪除此項目？',
+        text: '刪除後將無法再進行復原！',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: 'rgb(134 190 249)',
+        cancelButtonColor: 'rgb(249 134 134)',
+        confirmButtonText: '是的，請刪除！',
+        cancelButtonText: '取消',
+        focusConfirm: false
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.data.splice(index, 1)
+          this.$swal.fire('刪除！', '此項目已被刪除。', '成功')
+        }
+      })
     },
     deleteAllCompleted () {
-      this.data = this.data.filter((item) => !item.checked)
+      const undoneItems = this.data.filter((item) => item.checked)
+      if (undoneItems.length === 0) {
+        this.$swal({
+          title: '沒有已完成的項目！',
+          icon: 'info',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '好的'
+        })
+        return
+      }
+      this.$swal({
+        title: '是否要清除已完成項目？',
+        text: '清除後將無法再進行復原！',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: 'rgb(134 190 249)',
+        cancelButtonColor: 'rgb(249 134 134)',
+        confirmButtonText: '是的，請清除！',
+        cancelButtonText: '取消',
+        focusConfirm: false
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.data = this.data.filter((item) => !item.checked)
+          this.$swal.fire('清除！', '完成項目已全被清除。', '成功')
+        }
+      })
     }
   }
 }
 </script>
 
-<style lang="scss" scoped>
-@import url('https://fonts.googleapis.com/earlyaccess/notosanstc.css');
-@import url('https://fonts.googleapis.com/css?family=Baloo+Tamma+2:600, 700');
-
-* {
-  box-sizing: border-box;
-}
-html {
-  font-size: 16px;
-  -webkit-tap-highlight-color: transparent;
-}
-$default: #ffd370;
-$dark: #333;
-$gray: #9f9a91;
-$light: #efefef;
-.body {
-  height: 100vh;
-  background: #eee;
-  display: flex;
-  color: $dark;
-  background-image: linear-gradient(
-    174deg,
-    $default 2%,
-    $default 46%,
-    #ffffff 46%,
-    #ffffff 100%,
-    #e8e8e8 100%
-  );
-  letter-spacing: 0.07em;
-}
+<style lang="scss">
+@import '@/assets/base.scss';
 
 h1 {
   text-align: center;
@@ -249,6 +276,7 @@ input[type='text'] {
       background: #000;
       background-image: url('https://i.imgur.com/7Q4RjFx.jpg');
       background-size: contain;
+      cursor: pointer;
       @media (max-width: 575px) {
         opacity: 1;
         width: 12px;
